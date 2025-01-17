@@ -15,6 +15,7 @@ fn main() -> Result<()> {
         stdin.read_line(&mut input).unwrap();
         match Command::from_str(&input) {
             Err(ShellError::NotImplemented(e)) => println!("{e}: command not found"),
+            Err(ShellError::UnknownType(t)) => println!("{t}: not found"),
             Err(ShellError::Exit(code)) => match code.as_str() {
                 "0" => return Ok(()),
                 _ => return Err(ShellError::Exit(code)),
@@ -37,6 +38,8 @@ enum ShellError {
     NotImplemented(String),
     #[error("exit code {0} != 0")]
     Exit(String),
+    #[error("type not known {0}")]
+    UnknownType(String),
 }
 
 #[derive(Default)]
@@ -71,7 +74,7 @@ impl FromStr for Command {
                     Some("echo") | Some("type") | Some("exit") => {
                         return Ok(Self::Type(c.expect("must contain valuet").into()))
                     }
-                    _ => return Err(ShellError::NotImplemented(c.unwrap_or("").into())),
+                    _ => return Err(ShellError::UnknownType(c.unwrap_or("").into())),
                 }
             }
             Some("echo") => Ok(Self::Echo(

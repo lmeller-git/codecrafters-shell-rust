@@ -97,13 +97,11 @@ impl FromStr for Command {
                     .map(|path| format!("{}/{}", path, c))
                     .find(|path| std::fs::metadata(path).is_ok())
                 {
-                    None => Err(ShellError::UnknownType(c.into())),
-                    Some(p) => Ok(Self::Type(c.into(), p.into())), /*
-                                                                   Some(p) => Ok(Self::External(
-                                                                       p,
-                                                                       Args::default().with_args(s.map(|arg| arg.to_string()).collect()),
-                                                                   )),
-                                                                   */
+                    None => Err(ShellError::NotImplemented(c.into())),
+                    Some(p) => Ok(Self::External(
+                        p,
+                        Args::default().with_args(s.map(|arg| arg.to_string()).collect()),
+                    )),
                 }
             }
             None => Ok(Self::NoCommand),
@@ -125,9 +123,10 @@ impl Command {
                 Some(p) => println!("{} is {}", c, p),
             },
             Self::NoCommand => println!(),
-            Self::External(p, _args) => {
-                let name = p.split('/').last().unwrap_or("");
-                println!("{} is {}", name, p);
+            Self::External(p, args) => {
+                let _output = std::process::Command::new(p)
+                    .args(args.args.clone())
+                    .output()?;
             }
         }
         Ok(())

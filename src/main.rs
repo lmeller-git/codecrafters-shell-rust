@@ -33,13 +33,15 @@ enum ShellError {
     #[error("IOError {0}")]
     IO(#[from] std::io::Error),
     #[error("Unknown error {0}")]
-    Unknown(String),
+    _Unknown(String),
     #[error("{0}: command not found")]
     NotImplemented(String),
     #[error("exit code {0} != 0")]
     Exit(String),
     #[error("type not known {0}")]
     UnknownType(String),
+    #[error("Env error: {0}")]
+    Env(#[from] std::env::VarError),
 }
 
 #[derive(Default)]
@@ -60,6 +62,7 @@ enum Command {
     #[default]
     NoCommand,
     Type(String),
+    External(String, Args),
 }
 
 impl FromStr for Command {
@@ -72,15 +75,27 @@ impl FromStr for Command {
                 let c = s.next();
                 match c {
                     Some("echo") | Some("type") | Some("exit") => {
-                        return Ok(Self::Type(c.expect("must contain valuet").into()))
+                        Ok(Self::Type(c.expect("must contain valuet").into()))
                     }
-                    _ => return Err(ShellError::UnknownType(c.unwrap_or("").into())),
+                    _ => Err(ShellError::UnknownType(c.unwrap_or("").into())),
                 }
             }
             Some("echo") => Ok(Self::Echo(
                 Args::default().with_args(s.map(|arg| arg.to_string()).collect()),
             )),
-            Some(c) => Err(ShellError::NotImplemented(c.into())),
+            Some(c) => {
+                match std::env::var("PATH")?
+                    .split(":")
+                    .map(|path| format!("{}/{}", path, c))
+                    .find(|path| std::fs::metadata(path).is_ok())
+                {
+                    None => Err(ShellError::NotImplemented(c.into())),
+                    Some(p) => Ok(Self::External(
+                        p,
+                        Args::default().with_args(s.map(|arg| arg.to_string()).collect()),
+                    )),
+                }
+            }
             None => Ok(Self::NoCommand),
         }
     }
@@ -97,6 +112,10 @@ impl Command {
             }
             Self::Type(c) => println!("{c} is a shell builtin"),
             Self::NoCommand => println!(),
+            Self::External(p, _args) => {
+                let name = p.split('/').last().unwrap_or("");
+                println!("{} is {}", name, p);
+            }
         }
         Ok(())
     }

@@ -124,9 +124,15 @@ impl Command {
             },
             Self::NoCommand => println!(),
             Self::External(p, args) => {
-                let _output = std::process::Command::new(p)
+                let output = std::process::Command::new(p)
                     .args(args.args.clone())
                     .output()?;
+
+                if output.status.success() {
+                    println!("{}", String::from_utf8_lossy(&output.stdout));
+                } else {
+                    println!("{}", String::from_utf8_lossy(&output.stderr));
+                }
             }
         }
         Ok(())

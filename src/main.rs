@@ -77,6 +77,14 @@ impl FromStr for Command {
                     Some("echo") | Some("type") | Some("exit") => {
                         Ok(Self::Type(c.expect("must contain valuet").into(), None))
                     }
+                    Some(c) => match std::env::var("PATH")?
+                        .split(":")
+                        .map(|path| format!("{}/{}", path, c))
+                        .find(|path| std::fs::metadata(path).is_ok())
+                    {
+                        None => Err(ShellError::UnknownType(c.into())),
+                        Some(p) => Ok(Self::Type(c.into(), p.into())),
+                    },
                     _ => Err(ShellError::UnknownType(c.unwrap_or("").into())),
                 }
             }
@@ -89,7 +97,7 @@ impl FromStr for Command {
                     .map(|path| format!("{}/{}", path, c))
                     .find(|path| std::fs::metadata(path).is_ok())
                 {
-                    None => Err(ShellError::NotImplemented(c.into())),
+                    None => Err(ShellError::UnknownType(c.into())),
                     Some(p) => Ok(Self::Type(c.into(), p.into())), /*
                                                                    Some(p) => Ok(Self::External(
                                                                        p,

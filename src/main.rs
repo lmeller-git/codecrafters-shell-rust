@@ -61,7 +61,7 @@ enum Command {
     Echo(Args),
     #[default]
     NoCommand,
-    Type(String),
+    Type(String, Option<String>),
     External(String, Args),
 }
 
@@ -75,7 +75,7 @@ impl FromStr for Command {
                 let c = s.next();
                 match c {
                     Some("echo") | Some("type") | Some("exit") => {
-                        Ok(Self::Type(c.expect("must contain valuet").into()))
+                        Ok(Self::Type(c.expect("must contain valuet").into(), None))
                     }
                     _ => Err(ShellError::UnknownType(c.unwrap_or("").into())),
                 }
@@ -90,10 +90,12 @@ impl FromStr for Command {
                     .find(|path| std::fs::metadata(path).is_ok())
                 {
                     None => Err(ShellError::NotImplemented(c.into())),
-                    Some(p) => Ok(Self::External(
-                        p,
-                        Args::default().with_args(s.map(|arg| arg.to_string()).collect()),
-                    )),
+                    Some(p) => Ok(Self::Type(c.into(), p.into())), /*
+                                                                   Some(p) => Ok(Self::External(
+                                                                       p,
+                                                                       Args::default().with_args(s.map(|arg| arg.to_string()).collect()),
+                                                                   )),
+                                                                   */
                 }
             }
             None => Ok(Self::NoCommand),
@@ -110,7 +112,10 @@ impl Command {
                 }
                 println!();
             }
-            Self::Type(c) => println!("{c} is a shell builtin"),
+            Self::Type(c, p) => match p {
+                None => println!("{c} is a shell builtin"),
+                Some(p) => println!("{} is {}", c, p),
+            },
             Self::NoCommand => println!(),
             Self::External(p, _args) => {
                 let name = p.split('/').last().unwrap_or("");

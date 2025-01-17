@@ -124,9 +124,9 @@ impl Command {
             },
             Self::NoCommand => println!(),
             Self::External(p, args) => {
-                let output = std::process::Command::new(p)
-                    .args(args.args.clone())
-                    .output()?;
+                let mut program_args = vec![p.split('/').last().unwrap_or("")];
+                program_args.extend(args.args.iter().map(|s| s.as_str()));
+                let output = std::process::Command::new(p).args(program_args).output()?;
 
                 if output.status.success() {
                     println!("{}", String::from_utf8_lossy(&output.stdout));

@@ -129,9 +129,9 @@ impl Command {
                 let output = std::process::Command::new(p).args(program_args).output()?;
 
                 if output.status.success() {
-                    println!("{}", String::from_utf8_lossy(&output.stdout));
+                    print!("{}", String::from_utf8_lossy(&output.stdout));
                 } else {
-                    println!("{}", String::from_utf8_lossy(&output.stderr));
+                    print!("{}", String::from_utf8_lossy(&output.stderr));
                 }
             }
         }

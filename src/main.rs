@@ -11,6 +11,12 @@ fn main() {
         let stdin = io::stdin();
         let mut input = String::new();
         stdin.read_line(&mut input).unwrap();
+        let mut temp = input.split_whitespace();
+        if let Some(code) = temp.next() {
+            if code == "exit" {
+                return;
+            }
+        }
         println!("{}: command not found", input.trim());
     }
 }

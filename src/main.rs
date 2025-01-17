@@ -13,20 +13,14 @@ fn main() -> Result<()> {
         let stdin = io::stdin();
         let mut input = String::new();
         stdin.read_line(&mut input).unwrap();
-        let mut temp = input.split_whitespace();
-        if let Some(code) = temp.next() {
-            match code {
-                "exit" => match temp.next() {
-                    None => return Err(ShellError::Exit("".into())),
-                    Some("0") => return Ok(()),
-                    Some(c) => return Err(ShellError::Exit(c.into())),
-                },
-                _ => match Command::from_str(&input) {
-                    Err(ShellError::NotImplemented(e)) => println!("{e}: command not found"),
-                    Err(e) => return Err(e),
-                    Ok(c) => c.execute()?,
-                },
-            }
+        match Command::from_str(&input) {
+            Err(ShellError::NotImplemented(e)) => println!("{e}: command not found"),
+            Err(ShellError::Exit(code)) => match code.as_str() {
+                "0" => return Ok(()),
+                _ => return Err(ShellError::Exit(code)),
+            },
+            Err(e) => return Err(e),
+            Ok(c) => c.execute()?,
         }
     }
 }
@@ -62,6 +56,7 @@ enum Command {
     Echo(Args),
     #[default]
     NoCommand,
+    Type(String),
 }
 
 impl FromStr for Command {
@@ -69,6 +64,16 @@ impl FromStr for Command {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let mut s = s.split_whitespace();
         match s.next() {
+            Some("exit") => Err(ShellError::Exit(s.next().unwrap_or("").into())),
+            Some("type") => {
+                let c = s.next();
+                match c {
+                    Some("echo") | Some("type") | Some("exit") => {
+                        return Ok(Self::Type(c.expect("must contain valuet").into()))
+                    }
+                    _ => return Err(ShellError::NotImplemented(c.unwrap_or("").into())),
+                }
+            }
             Some("echo") => Ok(Self::Echo(
                 Args::default().with_args(s.map(|arg| arg.to_string()).collect()),
             )),
@@ -87,6 +92,7 @@ impl Command {
                 }
                 println!();
             }
+            Self::Type(c) => println!("{c} is a shell builtin"),
             Self::NoCommand => println!(),
         }
         Ok(())

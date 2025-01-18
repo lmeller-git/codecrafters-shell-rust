@@ -1,6 +1,11 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::str::FromStr;
+use std::{
+    env::VarError,
+    fmt::Display,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 use thiserror::Error;
 
 fn main() -> Result<()> {
@@ -21,7 +26,13 @@ fn main() -> Result<()> {
                 _ => return Err(ShellError::Exit(code)),
             },
             Err(e) => return Err(e),
-            Ok(c) => c.execute()?,
+            Ok(c) => match c.execute() {
+                Ok(()) => {}
+                Err(ShellError::IO(_)) => {
+                    println!("{}: No such file or directory", c)
+                }
+                Err(e) => println!("{:#?}", e),
+            },
         }
     }
 }
@@ -64,6 +75,16 @@ enum Command {
     Type(String, Option<String>),
     External(String, Args),
     Pwd,
+    Cd(PathBuf),
+}
+
+impl Display for Command {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Cd(p) => write!(f, "cd: {}", p.display()),
+            _ => write!(f, ""),
+        }
+    }
 }
 
 impl FromStr for Command {
@@ -75,7 +96,7 @@ impl FromStr for Command {
             Some("type") => {
                 let c = s.next();
                 match c {
-                    Some("echo") | Some("type") | Some("exit") | Some("pwd") => {
+                    Some("echo") | Some("type") | Some("exit") | Some("pwd") | Some("cd") => {
                         Ok(Self::Type(c.expect("must contain valuet").into(), None))
                     }
                     Some(c) => match std::env::var("PATH")?
@@ -93,6 +114,7 @@ impl FromStr for Command {
                 Args::default().with_args(s.map(|arg| arg.to_string()).collect()),
             )),
             Some("pwd") => Ok(Self::Pwd),
+            Some("cd") => Ok(Self::Cd(s.next().unwrap_or("~").into())),
             Some(c) => {
                 match std::env::var("PATH")?
                     .split(":")
@@ -126,6 +148,7 @@ impl Command {
             },
             Self::NoCommand => println!(),
             Self::Pwd => println!("{}", std::env::current_dir()?.display()),
+            Self::Cd(p) => std::env::set_current_dir(p)?,
             Self::External(p, args) => {
                 let output = std::process::Command::new(p.split('/').last().unwrap_or(""))
                     .args(args.args.clone())

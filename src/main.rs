@@ -86,10 +86,67 @@ impl Display for Command {
     }
 }
 
+fn handle_input(mut input: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    while !input.is_empty() {
+        if input.starts_with('\'') {
+            let (next_arg, next_input) = longest_sequence(&input[1..], true);
+            args.push(next_arg);
+            input = next_input;
+        } else {
+            let (next_arg, next_input) = longest_sequence(input, false);
+            args.push(next_arg);
+            input = next_input;
+        }
+    }
+
+    args
+}
+fn longest_sequence(input: &str, mut in_quote: bool) -> (String, &str) {
+    let mut next_idx = 0;
+    loop {
+        let nxt_qote = input[next_idx..]
+            .find('\'')
+            .unwrap_or(input.len() - next_idx)
+            + next_idx;
+        let nxt_wht = input[next_idx..]
+            .find(char::is_whitespace)
+            .unwrap_or(input.len() - next_idx)
+            + next_idx;
+
+        if in_quote {
+            if nxt_qote < input.len() {
+                next_idx = nxt_qote + 1;
+                in_quote = false;
+            } else {
+                return (input.trim().replace('\'', ""), "");
+            }
+        } else if nxt_wht < nxt_qote {
+            let (sub_s, next_input) = input.split_at(nxt_wht);
+            return (sub_s.trim().replace('\'', ""), next_input.trim_start());
+        } else {
+            next_idx = nxt_qote + 1;
+            in_quote = true;
+        }
+        if next_idx >= input.len() {
+            return (input.trim().replace('\'', ""), "");
+        }
+    }
+}
+
 impl FromStr for Command {
     type Err = ShellError;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let mut s = s.split_whitespace();
+        let c;
+        let mut s = if let Some((command, args)) = s.split_once(char::is_whitespace) {
+            let mut s = vec![command];
+            c = handle_input(args);
+            s.extend(c.iter().map(|s| s.as_str()));
+            s.into_iter()
+        } else {
+            vec![s].into_iter()
+        };
+
         match s.next() {
             Some("exit") => Err(ShellError::Exit(s.next().unwrap_or("").into())),
             Some("type") => {
@@ -113,11 +170,11 @@ impl FromStr for Command {
                 Args::default().with_args(s.map(|arg| arg.to_string()).collect()),
             )),
             Some("pwd") => Ok(Self::Pwd),
-            Some("cd") => Ok(Self::Cd(s.next().unwrap_or("~").into())),
+            Some("cd") => Ok(Self::Cd(s.next().unwrap_or("~").trim().into())),
             Some(c) => {
                 match std::env::var("PATH")?
                     .split(":")
-                    .map(|path| format!("{}/{}", path, c))
+                    .map(|path| format!("{}/{}", path, c.trim()))
                     .find(|path| std::fs::metadata(path).is_ok())
                 {
                     None => Err(ShellError::NotImplemented(c.into())),

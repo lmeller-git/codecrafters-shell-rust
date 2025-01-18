@@ -106,55 +106,51 @@ fn handle_input(mut input: &str) -> Vec<String> {
 
     args
 }
-fn longest_sequence(input: &str, mut in_quote: bool, mut in_d_quote: bool) -> (String, &str) {
-    let mut next_idx = 0;
+fn longest_sequence(mut input: &str, mut in_quote: bool, mut in_d_quote: bool) -> (String, &str) {
+    let mut res = String::new();
     loop {
-        let nxt_quote = input[next_idx..]
-            .find('\'')
-            .unwrap_or(input.len() - next_idx)
-            + next_idx;
-        let nxt_wht = input[next_idx..]
-            .find(char::is_whitespace)
-            .unwrap_or(input.len() - next_idx)
-            + next_idx;
-        let nxt_d_quote = input[next_idx..]
-            .find('\"')
-            .unwrap_or(input.len() - next_idx)
-            + next_idx;
-
+        let nxt_quote = input.find('\'').unwrap_or(input.len());
+        let nxt_wht = input.find(char::is_whitespace).unwrap_or(input.len());
+        let nxt_d_quote = input.find('\"').unwrap_or(input.len());
+        let nxt_bkslsh = input.find('\\').unwrap_or(input.len());
         if in_d_quote {
             if nxt_d_quote < input.len() {
-                next_idx = nxt_d_quote + 1;
                 in_d_quote = false;
+                let (sub_s, next_input) = input.split_at(nxt_d_quote);
+                res.push_str(sub_s);
+                input = &next_input[1..];
             } else {
                 return (input.trim().replace('\"', ""), "");
             }
         } else if in_quote {
             if nxt_quote < input.len() {
-                next_idx = nxt_quote + 1;
                 in_quote = false;
+                let (sub_s, next_input) = input.split_at(nxt_quote);
+                res.push_str(sub_s);
+                input = &next_input[1..];
             } else {
                 return (input.trim().replace('\'', ""), "");
             }
-        } else if nxt_wht < nxt_quote || nxt_wht < nxt_d_quote {
-            let (sub_s, next_input) = input.split_at(nxt_wht);
-            let sub = if sub_s.contains('\"') {
-                sub_s.trim().replace('\"', "")
-            } else {
-                sub_s.trim().replace('\'', "")
-            };
-            return (sub, next_input.trim_start());
+        } else if nxt_bkslsh < nxt_d_quote && nxt_bkslsh < nxt_quote && nxt_bkslsh < nxt_wht {
+            let (in_between, next_input) = input.split_at(nxt_bkslsh);
+            res.push_str(in_between);
+            let (c, next_input) = next_input.split_at(2);
+            res.push(c.chars().last().unwrap());
+            input = next_input;
+        } else if nxt_wht < nxt_quote && nxt_wht < nxt_d_quote {
+            let (r, next_in) = input.split_once(char::is_whitespace).unwrap_or(("", ""));
+            res.push_str(r);
+            return (res, next_in.trim_start());
+        } else if nxt_d_quote < nxt_quote {
+            in_d_quote = true;
+            let (in_between, next_input) = input.split_at(nxt_d_quote);
+            input = &next_input[1..];
+            res.push_str(in_between);
         } else {
-            next_idx = if nxt_quote < nxt_d_quote {
-                in_quote = true;
-                nxt_quote + 1
-            } else {
-                in_d_quote = true;
-                nxt_d_quote + 1
-            };
-        }
-        if next_idx >= input.len() {
-            return (input.trim().replace('\'', ""), "");
+            in_quote = true;
+            let (in_between, next_input) = input.split_at(nxt_quote);
+            input = &next_input[1..];
+            res.push_str(in_between);
         }
     }
 }

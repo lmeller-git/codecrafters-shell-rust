@@ -90,11 +90,15 @@ fn handle_input(mut input: &str) -> Vec<String> {
     let mut args = Vec::new();
     while !input.is_empty() {
         if input.starts_with('\'') {
-            let (next_arg, next_input) = longest_sequence(&input[1..], true);
+            let (next_arg, next_input) = longest_sequence(&input[1..], true, false);
+            args.push(next_arg);
+            input = next_input;
+        } else if input.starts_with('\"') {
+            let (next_arg, next_input) = longest_sequence(&input[1..], false, true);
             args.push(next_arg);
             input = next_input;
         } else {
-            let (next_arg, next_input) = longest_sequence(input, false);
+            let (next_arg, next_input) = longest_sequence(input, false, false);
             args.push(next_arg);
             input = next_input;
         }
@@ -102,10 +106,11 @@ fn handle_input(mut input: &str) -> Vec<String> {
 
     args
 }
-fn longest_sequence(input: &str, mut in_quote: bool) -> (String, &str) {
+fn longest_sequence(input: &str, mut in_quote: bool, mut in_d_quote: bool) -> (String, &str) {
     let mut next_idx = 0;
+    let mut res = String::new();
     loop {
-        let nxt_qote = input[next_idx..]
+        let nxt_quote = input[next_idx..]
             .find('\'')
             .unwrap_or(input.len() - next_idx)
             + next_idx;
@@ -113,20 +118,41 @@ fn longest_sequence(input: &str, mut in_quote: bool) -> (String, &str) {
             .find(char::is_whitespace)
             .unwrap_or(input.len() - next_idx)
             + next_idx;
+        let nxt_d_quote = input[next_idx..]
+            .find('\"')
+            .unwrap_or(input.len() - next_idx)
+            + next_idx;
 
-        if in_quote {
-            if nxt_qote < input.len() {
-                next_idx = nxt_qote + 1;
+        if in_d_quote {
+            if nxt_d_quote < input.len() {
+                next_idx = nxt_d_quote + 1;
+                in_d_quote = false;
+            } else {
+                return (input.trim().replace('\"', ""), "");
+            }
+        } else if in_quote {
+            if nxt_quote < input.len() {
+                next_idx = nxt_quote + 1;
                 in_quote = false;
             } else {
                 return (input.trim().replace('\'', ""), "");
             }
-        } else if nxt_wht < nxt_qote {
+        } else if nxt_wht < nxt_quote || nxt_wht < nxt_d_quote {
             let (sub_s, next_input) = input.split_at(nxt_wht);
-            return (sub_s.trim().replace('\'', ""), next_input.trim_start());
+            let sub = if sub_s.contains('\"') {
+                sub_s.trim().replace('\"', "")
+            } else {
+                sub_s.trim().replace('\'', "")
+            };
+            return (sub, next_input.trim_start());
         } else {
-            next_idx = nxt_qote + 1;
-            in_quote = true;
+            next_idx = if nxt_quote < nxt_d_quote {
+                in_quote = true;
+                nxt_quote + 1
+            } else {
+                in_d_quote = true;
+                nxt_d_quote + 1
+            };
         }
         if next_idx >= input.len() {
             return (input.trim().replace('\'', ""), "");

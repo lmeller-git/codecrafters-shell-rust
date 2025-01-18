@@ -1,7 +1,6 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::{
-    env::VarError,
     fmt::Display,
     path::{Path, PathBuf},
     str::FromStr,
@@ -75,13 +74,13 @@ enum Command {
     Type(String, Option<String>),
     External(String, Args),
     Pwd,
-    Cd(PathBuf),
+    Cd(String),
 }
 
 impl Display for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Cd(p) => write!(f, "cd: {}", p.display()),
+            Self::Cd(p) => write!(f, "cd: {}", p),
             _ => write!(f, ""),
         }
     }
@@ -148,7 +147,16 @@ impl Command {
             },
             Self::NoCommand => println!(),
             Self::Pwd => println!("{}", std::env::current_dir()?.display()),
-            Self::Cd(p) => std::env::set_current_dir(p)?,
+            Self::Cd(p) => {
+                let p: PathBuf = if p.starts_with("~") {
+                    let home = std::env::home_dir().unwrap_or(Path::new("/").into());
+                    let p = p.trim_start_matches("~").trim_start_matches("/");
+                    home.join(PathBuf::from(p))
+                } else {
+                    PathBuf::from_str(p).unwrap_or_default()
+                };
+                std::env::set_current_dir(p.canonicalize()?)?;
+            }
             Self::External(p, args) => {
                 let output = std::process::Command::new(p.split('/').last().unwrap_or(""))
                     .args(args.args.clone())

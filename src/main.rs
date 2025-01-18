@@ -63,6 +63,7 @@ enum Command {
     NoCommand,
     Type(String, Option<String>),
     External(String, Args),
+    Pwd,
 }
 
 impl FromStr for Command {
@@ -74,7 +75,7 @@ impl FromStr for Command {
             Some("type") => {
                 let c = s.next();
                 match c {
-                    Some("echo") | Some("type") | Some("exit") => {
+                    Some("echo") | Some("type") | Some("exit") | Some("pwd") => {
                         Ok(Self::Type(c.expect("must contain valuet").into(), None))
                     }
                     Some(c) => match std::env::var("PATH")?
@@ -91,6 +92,7 @@ impl FromStr for Command {
             Some("echo") => Ok(Self::Echo(
                 Args::default().with_args(s.map(|arg| arg.to_string()).collect()),
             )),
+            Some("pwd") => Ok(Self::Pwd),
             Some(c) => {
                 match std::env::var("PATH")?
                     .split(":")
@@ -123,6 +125,7 @@ impl Command {
                 Some(p) => println!("{} is {}", c, p),
             },
             Self::NoCommand => println!(),
+            Self::Pwd => println!("{}", std::env::current_dir()?.display()),
             Self::External(p, args) => {
                 let output = std::process::Command::new(p.split('/').last().unwrap_or(""))
                     .args(args.args.clone())

@@ -108,7 +108,6 @@ fn handle_input(mut input: &str) -> Vec<String> {
 }
 fn longest_sequence(input: &str, mut in_quote: bool, mut in_d_quote: bool) -> (String, &str) {
     let mut next_idx = 0;
-    let mut res = String::new();
     loop {
         let nxt_quote = input[next_idx..]
             .find('\'')

@@ -114,12 +114,27 @@ fn longest_sequence(mut input: &str, mut in_quote: bool, mut in_d_quote: bool) -
         let nxt_d_quote = input.find('\"').unwrap_or(input.len());
         let nxt_bkslsh = input.find('\\').unwrap_or(input.len());
         if in_d_quote {
+            if nxt_bkslsh < nxt_d_quote {
+                let (in_between, next_input) = input.split_at(nxt_bkslsh);
+                res.push_str(in_between);
+                let (c, next_input) = next_input.split_at(2);
+                let c = c.chars().last().unwrap();
+                if c == '\\' || c == '\"' || c == '$' || c == '\n' {
+                    res.push(c);
+                } else {
+                    res.push('\\');
+                    res.push(c);
+                }
+                input = next_input;
+                continue;
+            }
             if nxt_d_quote < input.len() {
                 in_d_quote = false;
                 let (sub_s, next_input) = input.split_at(nxt_d_quote);
                 res.push_str(sub_s);
                 input = &next_input[1..];
             } else {
+                //TODO
                 return (input.trim().replace('\"', ""), "");
             }
         } else if in_quote {
@@ -129,6 +144,7 @@ fn longest_sequence(mut input: &str, mut in_quote: bool, mut in_d_quote: bool) -
                 res.push_str(sub_s);
                 input = &next_input[1..];
             } else {
+                //TODO
                 return (input.trim().replace('\'', ""), "");
             }
         } else if nxt_bkslsh < nxt_d_quote && nxt_bkslsh < nxt_quote && nxt_bkslsh < nxt_wht {

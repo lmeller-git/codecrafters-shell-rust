@@ -174,15 +174,8 @@ fn longest_sequence(mut input: &str, mut in_quote: bool, mut in_d_quote: bool) -
 impl FromStr for Command {
     type Err = ShellError;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let c;
-        let mut s = if let Some((command, args)) = s.split_once(char::is_whitespace) {
-            let mut s = vec![command];
-            c = handle_input(args);
-            s.extend(c.iter().map(|s| s.as_str()));
-            s.into_iter()
-        } else {
-            vec![s].into_iter()
-        };
+        let c = handle_input(s);
+        let mut s = c.iter().map(|c| c.as_str());
 
         match s.next() {
             Some("exit") => Err(ShellError::Exit(s.next().unwrap_or("").into())),

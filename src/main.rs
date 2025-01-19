@@ -450,6 +450,7 @@ impl Command {
                     out_str.push(' ');
                 }
                 args.out.println(&out_str)?;
+                args.err.print("")?;
             }
             Self::Type(c, p) => match p {
                 None => println!("{c} is a shell builtin"),

@@ -13,7 +13,8 @@ use thiserror::Error;
 fn main() -> Result<()> {
     let mut std_out = io::stdout().into_raw_mode()?;
     let stdin = io::stdin();
-    write!(std_out, "$ ")?;
+    writeln!(std_out, "\n\r{}", std::env::current_dir()?.display())?;
+    write!(std_out, "\r$ ")?;
     std_out.flush()?;
     let mut input = String::new();
     let mut display_possibilities = false;
@@ -47,6 +48,7 @@ fn main() -> Result<()> {
                         Err(e) => println!("\r{:#?}", e),
                     },
                 }
+                writeln!(std_out, "\n\r{}", std::env::current_dir()?.display())?;
                 write!(std_out, "\r$ ")?;
                 std_out.flush()?;
                 input.clear();
@@ -85,6 +87,7 @@ fn main() -> Result<()> {
                     let common_prefix = common_prefix(&input, &completions);
                     input.push_str(&common_prefix);
                     */
+                    writeln!(std_out, "\n\r{}", std::env::current_dir()?.display())?;
                     write!(std_out, "\r$ {}", input)?;
                     std_out.flush()?;
 
@@ -116,6 +119,7 @@ fn main() -> Result<()> {
                             continue;
                         }
                         input.push_str(&common_prefix);
+                        writeln!(std_out, "\n\r{}", std::env::current_dir()?.display())?;
                         write!(std_out, "\r$ {}", input)?;
                         std_out.flush()?;
                         completions.clear();

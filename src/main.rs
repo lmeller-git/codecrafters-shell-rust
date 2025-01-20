@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::{
+    collections::HashSet,
     fmt::Display,
     fs::{self, File, OpenOptions},
     path::{Path, PathBuf},
@@ -79,10 +80,9 @@ fn main() -> Result<()> {
             }
             Key::Char('\t') => {
                 if display_possibilities {
-                    writeln!(std_out)?;
-                    for c in &completions {
-                        writeln!(std_out, "\r{}", c)?;
-                    }
+                    print_list(&completions)?;
+                    let common_prefix = common_prefix(&input, &completions);
+                    input.push_str(&common_prefix);
                     write!(std_out, "\r$ {}", input)?;
                     std_out.flush()?;
                     display_possibilities = false;
@@ -92,7 +92,7 @@ fn main() -> Result<()> {
                 if input.is_empty() {
                     continue;
                 }
-                let mut a_completions = auto_complete(&input)?;
+                let a_completions = auto_complete(&input)?;
                 match a_completions.len() {
                     1 => {
                         input = a_completions.first().unwrap().clone();
@@ -104,7 +104,9 @@ fn main() -> Result<()> {
                         std_out.flush()?;
                     }
                     _ => {
-                        completions.append(&mut a_completions);
+                        completions = a_completions;
+                        write!(std_out, "{}", 7 as char)?;
+                        std_out.flush()?;
                         display_possibilities = true;
                     }
                 }
@@ -118,6 +120,41 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn print_list(completions: &[String]) -> Result<()> {
+    for chunk in completions.chunks(3) {
+        println!();
+        print!("\r");
+        for c in chunk {
+            print!("{} ", c);
+        }
+    }
+    println!();
+    Ok(())
+}
+
+fn common_prefix(input: &str, completions: &[String]) -> String {
+    let mut common: String = completions
+        .first()
+        .unwrap()
+        .strip_prefix(input)
+        .unwrap()
+        .into();
+    for c in &completions[1..] {
+        let suffix = c.strip_prefix(input).unwrap();
+        for len in (0..suffix.len().min(common.len())).rev() {
+            if common.starts_with(&suffix[..len]) {
+                common = suffix[..len].into();
+                break;
+            }
+        }
+        if common.is_empty() {
+            return "".into();
+        }
+    }
+
+    common
 }
 
 fn auto_complete(input: &str) -> Result<Vec<String>> {
@@ -146,6 +183,9 @@ fn auto_complete(input: &str) -> Result<Vec<String>> {
             }
         }
     }
+    let completions: HashSet<String> = completions.into_iter().collect();
+    let mut completions: Vec<String> = completions.into_iter().collect();
+    completions.sort();
     Ok(completions)
 }
 

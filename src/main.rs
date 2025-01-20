@@ -2,7 +2,7 @@
 use std::io::{self, Write};
 use std::{
     fmt::Display,
-    fs::{File, OpenOptions},
+    fs::{self, File, OpenOptions},
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -92,7 +92,7 @@ fn main() -> Result<()> {
                 if input.is_empty() {
                     continue;
                 }
-                let mut a_completions = auto_complete(&input);
+                let mut a_completions = auto_complete(&input)?;
                 match a_completions.len() {
                     1 => {
                         input = a_completions.first().unwrap().clone();
@@ -120,14 +120,33 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn auto_complete(input: &str) -> Vec<String> {
+fn auto_complete(input: &str) -> Result<Vec<String>> {
     let mut completions = Vec::new();
     for s in ["echo ", "type ", "cd ", "exit "] {
         if s.starts_with(input) {
             completions.push(s.into());
         }
     }
-    completions
+    if !completions.is_empty() {
+        return Ok(completions);
+    }
+    for s in std::env::var("PATH")?.split(":") {
+        match fs::read_dir(s) {
+            Err(_) => continue,
+            Ok(entries) => {
+                for entry in entries {
+                    let name = entry?.file_name();
+                    let name = name.to_string_lossy();
+                    if name.starts_with(input) {
+                        let mut name = name.into_owned();
+                        name.push(' ');
+                        completions.push(name);
+                    }
+                }
+            }
+        }
+    }
+    Ok(completions)
 }
 
 type Result<T> = std::result::Result<T, ShellError>;

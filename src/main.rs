@@ -81,10 +81,13 @@ fn main() -> Result<()> {
             Key::Char('\t') => {
                 if display_possibilities {
                     print_list(&completions)?;
+                    /*
                     let common_prefix = common_prefix(&input, &completions);
                     input.push_str(&common_prefix);
+                    */
                     write!(std_out, "\r$ {}", input)?;
                     std_out.flush()?;
+
                     display_possibilities = false;
                     completions.clear();
                     continue;
@@ -105,9 +108,17 @@ fn main() -> Result<()> {
                     }
                     _ => {
                         completions = a_completions;
-                        write!(std_out, "{}", 7 as char)?;
+                        let common_prefix = common_prefix(&input, &completions);
+                        if common_prefix.is_empty() {
+                            write!(std_out, "{}", 7 as char)?;
+                            std_out.flush()?;
+                            display_possibilities = true;
+                            continue;
+                        }
+                        input.push_str(&common_prefix);
+                        write!(std_out, "\r$ {}", input)?;
                         std_out.flush()?;
-                        display_possibilities = true;
+                        completions.clear();
                     }
                 }
             }
@@ -143,8 +154,8 @@ fn common_prefix(input: &str, completions: &[String]) -> String {
         .into();
     for c in &completions[1..] {
         let suffix = c.strip_prefix(input).unwrap();
-        for len in (0..suffix.len().min(common.len())).rev() {
-            if common.starts_with(&suffix[..len]) {
+        for len in (0..suffix.len().min(common.len() + 1)).rev() {
+            if common.starts_with(&suffix[..len]) || common == suffix[..len] {
                 common = suffix[..len].into();
                 break;
             }

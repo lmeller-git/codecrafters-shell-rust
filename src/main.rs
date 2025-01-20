@@ -6,35 +6,125 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
+use termion::{event::Key, input::TermRead, raw::IntoRawMode};
 use thiserror::Error;
 
 fn main() -> Result<()> {
-    // Uncomment this block to pass the first stage
-    loop {
-        print!("$ ");
-        io::stdout().flush().unwrap();
-
-        // Wait for user input
-        let stdin = io::stdin();
-        let mut input = String::new();
-        stdin.read_line(&mut input).unwrap();
-        match Command::from_str(&input) {
-            Err(ShellError::NotImplemented(e)) => println!("{e}: command not found"),
-            Err(ShellError::UnknownType(t)) => println!("{t}: not found"),
-            Err(ShellError::Exit(code)) => match code.as_str() {
-                "0" => return Ok(()),
-                _ => return Err(ShellError::Exit(code)),
-            },
-            Err(e) => return Err(e),
-            Ok(c) => match c.execute() {
-                Ok(()) => {}
-                Err(ShellError::IO(_)) => {
-                    println!("{}: No such file or directory", c)
+    let mut std_out = io::stdout().into_raw_mode()?;
+    let stdin = io::stdin();
+    write!(std_out, "$ ")?;
+    std_out.flush()?;
+    let mut input = String::new();
+    let mut display_possibilities = false;
+    let mut completions = Vec::default();
+    let mut in_d_quote = false;
+    let mut in_quote = false;
+    std_out.flush()?;
+    for k in stdin.keys() {
+        match k.as_ref().unwrap() {
+            Key::Char('\n') => {
+                if in_quote || in_d_quote {
+                    //TODO
+                    //write!(std_out, " ")?;
+                    //std_out.flush()?;
+                    continue;
                 }
-                Err(e) => println!("{:#?}", e),
-            },
+                writeln!(std_out, "\r")?;
+                match Command::from_str(&input) {
+                    Err(ShellError::NotImplemented(e)) => println!("\r{e}: command not found"),
+                    Err(ShellError::UnknownType(t)) => println!("\r{t}: not found"),
+                    Err(ShellError::Exit(code)) => match code.as_str() {
+                        "0" => return Ok(()),
+                        _ => return Err(ShellError::Exit(code)),
+                    },
+                    Err(e) => return Err(e),
+                    Ok(c) => match c.execute() {
+                        Ok(()) => {}
+                        Err(ShellError::IO(_)) => {
+                            println!("\r{}: No such file or directory", c)
+                        }
+                        Err(e) => println!("\r{:#?}", e),
+                    },
+                }
+                write!(std_out, "\r$ ")?;
+                std_out.flush()?;
+                input.clear();
+            }
+            Key::Char('\'') => {
+                input.push('\'');
+                write!(std_out, "\'")?;
+                std_out.flush()?;
+                // if !in_d_quote {
+                // in_quote = !in_quote;
+                // }
+            }
+            Key::Char('\"') => {
+                input.push('\"');
+                write!(std_out, "\"")?;
+                std_out.flush()?;
+                // in_d_quote = !in_d_quote;
+            }
+            Key::Backspace => {
+                if !input.is_empty() {
+                    if let Some(c) = input.pop() {
+                        if c == '\'' {
+                            in_quote = !in_quote;
+                        } else if c == '\"' {
+                            in_d_quote = !in_d_quote;
+                        }
+                    }
+                    write!(std_out, "\r$ {} \r$ {}", input, input)?;
+                    std_out.flush()?;
+                }
+            }
+            Key::Char('\t') => {
+                if display_possibilities {
+                    writeln!(std_out)?;
+                    for c in &completions {
+                        writeln!(std_out, "\r{}", c)?;
+                    }
+                    write!(std_out, "\r$ {}", input)?;
+                    std_out.flush()?;
+                    display_possibilities = false;
+                    completions.clear();
+                    continue;
+                }
+                if input.is_empty() {
+                    continue;
+                }
+                let mut a_completions = auto_complete(&input);
+                match a_completions.len() {
+                    1 => {
+                        input = a_completions.first().unwrap().clone();
+                        write!(std_out, "\r$ {} \r$ {}", input, input)?;
+                        std_out.flush()?;
+                    }
+                    0 => {}
+                    _ => {
+                        completions.append(&mut a_completions);
+                        display_possibilities = true;
+                    }
+                }
+            }
+            Key::Char(c) => {
+                write!(std_out, "{}", c)?;
+                std_out.flush()?;
+                input.push(*c)
+            }
+            _ => {}
         }
     }
+    Ok(())
+}
+
+fn auto_complete(input: &str) -> Vec<String> {
+    let mut completions = Vec::new();
+    for s in ["echo ", "type ", "cd ", "exit "] {
+        if s.starts_with(input) {
+            completions.push(s.into());
+        }
+    }
+    completions
 }
 
 type Result<T> = std::result::Result<T, ShellError>;
@@ -172,14 +262,18 @@ struct StdErr {
 impl OutPut for StdOut {
     fn write(&self, input: &str) -> Result<()> {
         if self.to.is_empty() {
-            print!("{}", input);
+            for line in input.lines() {
+                println!("\r{}", line);
+            }
         }
         for (f, mode) in &self.to {
             let mut file = match mode {
                 Mode::Append => OpenOptions::new().append(true).create(true).open(f)?,
                 Mode::Overwrite => File::create(f)?,
                 Mode::Out => {
-                    print!("{}", input);
+                    for line in input.lines() {
+                        println!("\r{}", line);
+                    }
                     continue;
                 }
             };
@@ -453,8 +547,8 @@ impl Command {
                 args.err.print("")?;
             }
             Self::Type(c, p) => match p {
-                None => println!("{c} is a shell builtin"),
-                Some(p) => println!("{} is {}", c, p),
+                None => println!("\r{c} is a shell builtin"),
+                Some(p) => println!("\r{} is {}", c, p),
             },
             Self::NoCommand => println!(),
             Self::Pwd => println!("{}", std::env::current_dir()?.display()),

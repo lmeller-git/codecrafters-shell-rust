@@ -99,7 +99,10 @@ fn main() -> Result<()> {
                         write!(std_out, "\r$ {} \r$ {}", input, input)?;
                         std_out.flush()?;
                     }
-                    0 => {}
+                    0 => {
+                        write!(std_out, "{}", 7 as char)?;
+                        std_out.flush()?;
+                    }
                     _ => {
                         completions.append(&mut a_completions);
                         display_possibilities = true;
